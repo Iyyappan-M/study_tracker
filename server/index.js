@@ -4,6 +4,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -23,7 +28,7 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', time: new Date().toISOString() });
+  res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
 const PORT = process.env.PORT || 5000;
@@ -101,7 +106,7 @@ app.post('/api/auth/register', async (req, res) => {
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    
+
     // First user is Admin (optional logic or just preset one in .env)
     const count = await User.countDocuments();
     const role = count === 0 ? 'admin' : 'user';
@@ -131,10 +136,10 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({
       token,
       user: {
-        _id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        role: user.role, 
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
         status: user.status,
         avatar: user.avatar
       }
@@ -210,7 +215,7 @@ app.post('/api/admin/handle-request', authenticate, isAdmin, async (req, res) =>
       request.status = 'rejected';
       await User.findByIdAndUpdate(request.userId, { status: 'rejected' });
     }
-    
+
     await request.save();
     res.json({ message: `Request ${action}d successfully` });
   } catch (err) {
@@ -258,12 +263,12 @@ app.delete('/api/admin/member/:id', authenticate, isAdmin, async (req, res) => {
 
 // User: Get profile/status
 app.get('/api/user/me', authenticate, async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id).select('-password');
-        res.json(user);
-    } catch(err) {
-        res.status(500).json({ message: 'Server error' });
-    }
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // User: Update profile
@@ -284,7 +289,7 @@ app.post('/api/chat/message', authenticate, async (req, res) => {
   try {
     const { text, replyTo } = req.body;
     const user = await User.findById(req.user.id);
-    
+
     const newMessage = new Message({
       userId: user._id,
       userName: user.name,
@@ -335,23 +340,31 @@ app.post('/api/chat/pin-message', authenticate, isAdmin, async (req, res) => {
 });
 
 app.put('/api/user/update-profile', authenticate, async (req, res) => {
-    try {
-        const { name } = req.body;
-        const user = await User.findByIdAndUpdate(req.user.id, { name }, { new: true }).select('-password');
-        res.json(user);
-    } catch(err) {
-        res.status(500).json({ message: 'Server error' });
-    }
+  try {
+    const { name } = req.body;
+    const user = await User.findByIdAndUpdate(req.user.id, { name }, { new: true }).select('-password');
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Serve static files from the React frontend app
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Anything that doesn't match the above API routes, send back index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 if (MONGODB_URI) {
-    mongoose.connect(MONGODB_URI)
-      .then(() => {
-        console.log('Connected to MongoDB Atlas');
-        app.listen(PORT, '0.0.0.0', () => console.log(`Server running on all interfaces (0.0.0.0) at port ${PORT}`));
-      })
-      .catch(err => console.error('MongoDB connection error:', err));
+  mongoose.connect(MONGODB_URI)
+    .then(() => {
+      console.log('Connected to MongoDB Atlas');
+      app.listen(PORT, '0.0.0.0', () => console.log(`Server running on all interfaces (0.0.0.0) at port ${PORT}`));
+    })
+    .catch(err => console.error('MongoDB connection error:', err));
 } else {
-    console.warn('MONGODB_URI not found in environment. Please check .env');
-    app.listen(PORT, '0.0.0.0', () => console.log(`Server running on all interfaces (0.0.0.0) at port ${PORT} (Disconnected from DB)`));
+  console.warn('MONGODB_URI not found in environment. Please check .env');
+  app.listen(PORT, '0.0.0.0', () => console.log(`Server running on all interfaces (0.0.0.0) at port ${PORT} (Disconnected from DB)`));
 }
