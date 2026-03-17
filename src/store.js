@@ -3,7 +3,8 @@ import { useState, useCallback, useEffect } from 'react';
 
 const generateId = () => Math.random().toString(36).substring(2, 11);
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000/api';
+console.log('Using API Base URL:', API_BASE_URL);
 
 export const getDayStatus = (tasks) => {
   if (!tasks || tasks.length === 0) return null;
@@ -46,6 +47,7 @@ export const useStore = () => {
         return false;
       }
     } catch (err) {
+      console.error('Registration error:', err);
       addNotification('❌ Server connection failed', 'warning');
       return false;
     }
@@ -69,6 +71,7 @@ export const useStore = () => {
         return { success: false, message: data.message };
       }
     } catch (err) {
+      console.error('Login error:', err);
       return { success: false, message: 'Server connection failed' };
     }
   };
