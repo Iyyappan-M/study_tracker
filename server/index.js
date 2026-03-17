@@ -350,11 +350,12 @@ app.put('/api/user/update-profile', authenticate, async (req, res) => {
 });
 
 // Serve static files from the React frontend app
-app.use(express.static(path.join(__dirname, '../dist')));
+const distPath = path.join(process.cwd(), 'dist');
+app.use(express.static(distPath));
 
 // Anything that doesn't match the above API routes, send back index.html
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 if (MONGODB_URI) {
