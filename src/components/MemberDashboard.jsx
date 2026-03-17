@@ -5,6 +5,7 @@ import { getDayStatus } from '../store';
 
 export default function MemberDashboard({ 
   members, 
+  currentUser,
   calculateStreak, 
   getRowsForMember, 
   isAdmin, 
@@ -53,20 +54,20 @@ export default function MemberDashboard({
                     <table className="w-full text-left">
                       <tbody className="divide-y divide-white/5">
                         {joinRequests.map(req => (
-                          <tr key={req.id} className="hover:bg-white/[0.01] transition-colors">
+                          <tr key={req._id} className="hover:bg-white/[0.01] transition-colors">
                             <td className="px-6 py-4 flex items-center gap-3">
                               <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-xs">👤</div>
                               <div>
                                 <p className="text-sm font-bold text-white leading-none">{req.name}</p>
-                                <p className="text-[0.6rem] text-dark-500 mt-1 font-medium">{req.email}</p>
+                                <p className="text-[0.6rem] text-dark-500 mt-1 font-medium italic">Code: {req.secretCode}</p>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-2">
-                                <button onClick={() => onAcceptRequest(req.id)} className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all">
+                                <button onClick={() => onAcceptRequest(req._id)} className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all" title="Accept">
                                   <Check className="w-3.5 h-3.5" />
                                 </button>
-                                <button onClick={() => onRejectRequest(req.id)} className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all">
+                                <button onClick={() => onRejectRequest(req._id)} className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all" title="Reject">
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
@@ -91,12 +92,14 @@ export default function MemberDashboard({
                   <table className="w-full text-left">
                     <tbody className="divide-y divide-white/5">
                       {members.map(m => (
-                        <tr key={m.id} className="hover:bg-white/[0.01] transition-colors">
+                        <tr key={m._id} className="hover:bg-white/[0.01] transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <span className="text-xl">{m.avatar}</span>
+                              <span className="text-xl">{m.avatar || '👤'}</span>
                               <div>
-                                <p className="text-sm font-bold text-white leading-none">{m.name} {m.role === 'admin' && '👑'}</p>
+                                <p className="text-sm font-bold text-white leading-none">
+                                  {m.name} {m._id === currentUser?._id && <span className="text-[0.6rem] text-indigo-400 font-black ml-1">(ME)</span>}
+                                </p>
                                 <p className="text-[0.6rem] text-dark-500 mt-1 font-black uppercase tracking-widest">{m.role}</p>
                               </div>
                             </div>
@@ -104,7 +107,7 @@ export default function MemberDashboard({
                           <td className="px-6 py-4 text-right">
                             {m.role !== 'admin' && (
                               <button 
-                                onClick={() => onRemoveMember(m.id)}
+                                onClick={() => onRemoveMember(m._id)}
                                 className="flex items-center gap-2 ml-auto px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/10 transition-all text-[0.6rem] font-black uppercase tracking-widest group"
                               >
                                 <Trash2 className="w-3 h-3 transition-transform group-hover:scale-110" />
@@ -138,25 +141,26 @@ export default function MemberDashboard({
       {/* Member Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {members.map((member, i) => {
-          const streak = calculateStreak(member.id);
-          const days = getRowsForMember(member.id);
+          const mid = member._id;
+          const streak = calculateStreak(mid);
+          const days = getRowsForMember(mid);
           const totalTasks = days.reduce((acc, d) => acc + d.tasks.length, 0);
           const completedTasks = days.reduce((acc, d) => acc + d.tasks.filter(t => t.completed === true).length, 0);
           const rate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
           return (
             <motion.div
-              key={member.id}
+              key={mid}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 + i * 0.08 }}
               whileHover={{ y: -8 }}
-              onClick={() => navigate(`/member/${member.username}`)}
+              onClick={() => navigate(`/member/${mid}`)}
               className="glass-card p-6 cursor-pointer group flex flex-col h-full border-white/5 hover:border-indigo-500/30"
             >
               <div className="flex items-start justify-between mb-6">
                 <div className="w-16 h-16 rounded-[1.5rem] bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-3xl shadow-2xl group-hover:rotate-6 transition-transform">
-                  {member.avatar}
+                  {member.avatar || '👤'}
                 </div>
                 {member.role === 'admin' && (
                   <span className="text-[0.55rem] font-black uppercase tracking-[0.2em] px-2 py-1 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Admin</span>
@@ -165,9 +169,9 @@ export default function MemberDashboard({
 
               <div className="mb-6 flex-1">
                 <h3 className="text-xl font-display font-black text-white group-hover:text-indigo-300 transition-colors uppercase tracking-tight truncate">
-                  {member.name}
+                  {member.name} {mid === currentUser?._id && <span className="text-xs text-indigo-400 align-middle ml-1">(ME)</span>}
                 </h3>
-                <p className="text-[0.65rem] text-dark-500 font-bold uppercase tracking-widest mt-1">@{member.username}</p>
+                <p className="text-[0.6rem] text-dark-600 font-black uppercase tracking-widest mt-1">ID: {mid.substring(0, 8)}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-6 bg-black/20 p-4 rounded-2xl border border-white/5">

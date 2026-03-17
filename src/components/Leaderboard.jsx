@@ -7,7 +7,7 @@ const rankColors = {
   3: { bg: 'from-amber-700/20 to-orange-700/10', border: 'border-amber-700/40', text: 'text-amber-400', icon: '🥉' },
 };
 
-export default function Leaderboard({ data }) {
+export default function Leaderboard({ data, currentUser }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -33,11 +33,11 @@ export default function Leaderboard({ data }) {
 
           return (
             <motion.div
-              key={user.id}
+              key={user._id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 * rank }}
-              className={`leaderboard-row ${rank <= 3 ? `leaderboard-rank-${rank}` : ''}`}
+              className={`leaderboard-row ${rank <= 3 ? `leaderboard-rank-${rank}` : ''} ${user._id === currentUser?._id ? 'border-indigo-500/50 bg-indigo-500/5 shadow-lg shadow-indigo-500/10' : ''}`}
             >
               {/* Rank */}
               <div className="text-lg font-bold min-w-[32px] text-center">
@@ -52,7 +52,9 @@ export default function Leaderboard({ data }) {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white truncate">{user.name}</span>
+                  <span className="text-sm font-semibold text-white truncate">
+                    {user.name} {user._id === currentUser?._id && <span className="text-[0.6rem] text-indigo-400 font-bold ml-1">(ME)</span>}
+                  </span>
                   {user.role === 'admin' && (
                     <span className="text-[0.55rem] px-1.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-semibold uppercase tracking-wider">
                       Admin

@@ -19,12 +19,13 @@ export default function MemberTaskPage({
   updateTaskGlobally,
   currentUserRole,
 }) {
-  const { username } = useParams();
+  const { username: memberId } = useParams();
   const navigate = useNavigate();
 
-  const member = getMember(username);
-  const days = member ? getRowsForMember(member.id) : [];
-  const streak = member ? calculateStreak(member.id) : 0;
+  const member = getMember(memberId);
+  const mid = member?._id;
+  const days = mid ? getRowsForMember(mid) : [];
+  const streak = mid ? calculateStreak(mid) : 0;
 
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -41,8 +42,8 @@ export default function MemberTaskPage({
         <div className="glass-card p-10 max-w-md mx-auto">
           <p className="text-4xl mb-4">😕</p>
           <h2 className="text-xl font-display font-bold text-white mb-2">Member Not Found</h2>
-          <p className="text-sm text-dark-400 mb-6">The member "@{username}" doesn't exist.</p>
-          <button onClick={() => navigate('/dashboard')} className="btn-primary">← Back to Dashboard</button>
+          <p className="text-sm text-dark-400 mb-6">The member with ID "{memberId}" doesn't exist.</p>
+          <button onClick={() => navigate('/dashboard')} className="btn-primary uppercase tracking-widest text-[0.6rem] font-black">← Back to Dashboard</button>
         </div>
       </div>
     );
@@ -69,12 +70,12 @@ export default function MemberTaskPage({
     
     if (field === 'name') {
       if (globalEditMode) {
-        updateTaskGlobally(member.id, oldValue, editValue);
+        updateTaskGlobally(mid, oldValue, editValue);
       } else {
-        updateTask(member.id, dayId, taskId, { name: editValue });
+        updateTask(mid, dayId, taskId, { name: editValue });
       }
     } else {
-      updateTaskFeedback(member.id, dayId, taskId, field, editValue);
+      updateTaskFeedback(mid, dayId, taskId, field, editValue);
     }
     setEditingCell(null);
     setEditValue('');
@@ -85,7 +86,6 @@ export default function MemberTaskPage({
     if (e.key === 'Escape') { setEditingCell(null); setEditValue(''); }
   };
 
-  // Toggle day collapse
   const toggleCollapse = (dayId) => {
     setCollapsedDays(prev => ({ ...prev, [dayId]: !prev[dayId] }));
   };
@@ -98,7 +98,7 @@ export default function MemberTaskPage({
       return (
         <input autoFocus value={editValue} onChange={e => setEditValue(e.target.value)}
           onBlur={() => saveEdit(value)} onKeyDown={(e) => handleKeyDown(e, value)}
-          className="input-glass text-[0.7rem] w-full py-1 h-7" placeholder={placeholder} />
+          className="input-glass text-[0.7rem] w-full py-1 h-7 border-indigo-500/50" placeholder={placeholder} />
       );
     }
 
@@ -107,8 +107,8 @@ export default function MemberTaskPage({
         onClick={() => canEdit && startEdit(dayId, taskId, field, value)}
         className={`group flex items-center gap-2 min-h-[28px] ${canEdit ? 'cursor-pointer' : ''}`}
       >
-        <span className="text-[0.7rem] font-medium text-dark-200 truncate max-w-[200px]">
-          {value || <span className="text-dark-600 italic font-normal">{placeholder}</span>}
+        <span className={`text-[0.7rem] font-medium leading-relaxed ${value ? 'text-dark-100' : 'text-dark-600 italic'}`}>
+          {value || placeholder}
         </span>
         {canEdit && (
           <Edit3 className={`w-3 h-3 text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ${globalEditMode && field === 'name' ? 'opacity-100' : ''}`} />
@@ -117,7 +117,6 @@ export default function MemberTaskPage({
     );
   };
 
-  // ─── Status Button ─────────────────────────────────────────
   const StatusButton = ({ completed, onComplete, onIncomplete, canEdit }) => (
     <div className="flex gap-1.5">
       <motion.button 
@@ -126,8 +125,8 @@ export default function MemberTaskPage({
         onClick={canEdit ? onComplete : undefined}
         className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
           completed === true
-            ? 'bg-green-500/30 border border-green-400 text-green-300 shadow-lg shadow-green-500/20'
-            : 'bg-dark-800 border border-dark-600 text-dark-600 hover:border-green-500/50 hover:text-green-500'
+            ? 'bg-emerald-500/30 border border-emerald-400 text-emerald-300 shadow-lg shadow-emerald-500/20'
+            : 'bg-dark-800 border border-dark-600 text-dark-600 hover:border-emerald-500/50 hover:text-emerald-500'
         } ${!canEdit ? 'cursor-default' : ''}`}>
         <Check className="w-3.5 h-3.5" />
       </motion.button>
@@ -155,26 +154,26 @@ export default function MemberTaskPage({
           <span>Back to Dashboard</span>
         </button>
 
-        <div className="glass-card p-8 relative overflow-hidden group">
+        <div className="glass-card p-8 relative overflow-hidden group border-white/5">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5" />
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.02] to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
 
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8 relative z-10">
             <div className="flex items-center gap-6">
               <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-4xl shadow-2xl shadow-indigo-500/20 rotate-3 group-hover:rotate-0 transition-transform duration-500">
-                {member.avatar}
+                {member.avatar || '👤'}
               </div>
               <div>
                 <div className="flex items-center gap-3 mb-1.5">
-                  <h2 className="text-3xl font-display font-black text-white leading-tight">{member.name}</h2>
+                  <h2 className="text-3xl font-display font-black text-white leading-tight uppercase tracking-tight">{member.name}</h2>
                   {member.role === 'admin' && (
-                    <span className="text-[0.6rem] px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-black uppercase tracking-[0.2em]">Admin</span>
+                    <span className="text-[0.6rem] px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 font-black uppercase tracking-[0.2em]">Admin</span>
                   )}
                 </div>
                 <div className="flex items-center gap-4">
-                  <p className="text-[0.7rem] text-dark-500 font-bold uppercase tracking-widest">@{member.username}</p>
+                  <p className="text-[0.65rem] text-dark-600 font-black uppercase tracking-widest">UID: {mid.substring(0, 12)}</p>
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <p className="text-[0.7rem] text-emerald-400 font-black uppercase tracking-widest italic">Private Workspace</p>
+                  <p className="text-[0.6rem] text-dark-500 font-black uppercase tracking-widest italic">Personal Tracker</p>
                 </div>
               </div>
             </div>
@@ -188,14 +187,14 @@ export default function MemberTaskPage({
                   style={{ filter: 'drop-shadow(0 0 10px rgba(255,107,0,0.5))' }}>🔥</motion.span>
                 <div>
                   <p className="text-4xl font-display font-black fire-text leading-none">{streak}</p>
-                  <p className="text-[0.6rem] text-dark-500 uppercase tracking-[0.2em] font-black mt-1">Day Streak</p>
+                  <p className="text-[0.6rem] text-dark-500 uppercase tracking-[0.2em] font-black mt-1">Streak</p>
                 </div>
               </div>
               <div className="w-px h-12 bg-white/5" />
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1.5 text-emerald-400 mb-1.5">
                   <Target className="w-4 h-4" />
-                  <span className="text-[0.6rem] font-black uppercase tracking-[0.2em]">Rate</span>
+                  <span className="text-[0.55rem] font-black uppercase tracking-[0.2em]">Rate</span>
                 </div>
                 <p className="text-2xl font-display font-black text-white leading-none">{rate}%</p>
               </div>
@@ -203,7 +202,7 @@ export default function MemberTaskPage({
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1.5 text-indigo-400 mb-1.5">
                   <Calendar className="w-4 h-4" />
-                  <span className="text-[0.6rem] font-black uppercase tracking-[0.2em]">Tasks</span>
+                  <span className="text-[0.55rem] font-black uppercase tracking-[0.2em]">Tasks</span>
                 </div>
                 <p className="text-2xl font-display font-black text-white leading-none">{totalTasks}</p>
               </div>
@@ -218,15 +217,15 @@ export default function MemberTaskPage({
           { label: 'Completed Days', value: completedDays, icon: '✅', color: 'bg-emerald-500' },
           { label: 'Missed Days', value: missedDays, icon: '❌', color: 'bg-red-500' },
           { label: 'Tasks Done', value: completedTasks, icon: '🎯', color: 'bg-indigo-500' },
-          { label: 'Total Tracked', value: days.length, icon: '📊', color: 'bg-amber-500' },
+          { label: 'Total Logs', value: days.length, icon: '📊', color: 'bg-amber-500' },
         ].map((stat, i) => (
           <motion.div key={stat.label} 
             initial={{ opacity: 0, y: 10 }} 
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 + i * 0.08 }}
-            className="glass-card p-5 flex items-center gap-4 border border-white/5 hover:border-white/10 transition-colors"
+            className="glass-card p-5 flex items-center gap-4 border border-white/5 hover:border-white/10 transition-colors shadow-inner"
           >
-            <div className={`w-12 h-12 rounded-2xl ${stat.color}/10 flex items-center justify-center shadow-inner`}>
+            <div className={`w-12 h-12 rounded-2xl ${stat.color}/10 flex items-center justify-center`}>
               <span className="text-xl">{stat.icon}</span>
             </div>
             <div>
@@ -237,15 +236,13 @@ export default function MemberTaskPage({
         ))}
       </div>
 
-      {/* ─── Day-by-Day Task Cards ──────────────────────────── */}
       <div className="space-y-6">
-        {/* Controls Section (Admin only) */}
         {isAdmin && (
           <div className="flex flex-wrap gap-4 mb-2">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => addDay(member.id)}
+              onClick={() => addDay(mid)}
               className="flex-1 min-w-[200px] py-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl text-white text-[0.7rem] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 group"
             >
               <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
@@ -291,7 +288,6 @@ export default function MemberTaskPage({
                 transition={{ delay: dayIdx * 0.05 }}
                 className={`glass-card overflow-hidden border transition-all duration-500 ${cardBg}`}
               >
-                {/* Day Header */}
                 <div
                   className="flex items-center justify-between p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
                   onClick={() => toggleCollapse(day.id)}
@@ -308,27 +304,22 @@ export default function MemberTaskPage({
                         <div className="flex items-center gap-2">
                           <Check className={`w-3 h-3 ${dayStatus === true ? 'text-emerald-400' : 'text-dark-600'}`} />
                           <span className="text-[0.6rem] font-black text-dark-500 uppercase tracking-widest">
-                            {dayCompleted}/{dayTotal} Completed
+                            {dayCompleted}/{dayTotal}
                           </span>
                         </div>
                         {dayStatus === true && (
-                          <span className="text-[0.55rem] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            Great Day !
-                          </span>
+                          <span className="text-[0.5rem] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 ring-1 ring-emerald-500/20">Great Day!</span>
                         )}
                         {dayStatus === false && (
-                          <span className="text-[0.55rem] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-red-500/20 text-red-400 border border-red-500/30">
-                            Incomplete
-                          </span>
+                          <span className="text-[0.5rem] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-red-500/20 text-red-400 border border-red-500/30">Incomplete</span>
                         )}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-6">
-                    {/* Day Progress Strip */}
                     <div className="hidden sm:flex items-center gap-3">
-                      <div className="w-32 h-1.5 rounded-full bg-black/40 overflow-hidden shadow-inner font-black">
+                      <div className="w-32 h-1.5 rounded-full bg-black/40 overflow-hidden shadow-inner">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${dayRate}%` }}
@@ -343,12 +334,11 @@ export default function MemberTaskPage({
                       <span className="text-[0.65rem] font-black text-dark-400 min-w-[32px]">{dayRate}%</span>
                     </div>
 
-                    {/* Admin Delete */}
                     {isAdmin && (
                       <motion.button
                         whileHover={{ scale: 1.1, rotate: 10 }}
                         whileTap={{ scale: 0.9 }}
-                        onClick={(e) => { e.stopPropagation(); deleteDay(member.id, day.id); }}
+                        onClick={(e) => { e.stopPropagation(); deleteDay(mid, day.id); }}
                         className="p-2.5 rounded-xl text-dark-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -357,7 +347,6 @@ export default function MemberTaskPage({
                   </div>
                 </div>
 
-                {/* Task Table */}
                 <AnimatePresence>
                   {!isCollapsed && (
                     <motion.div
@@ -368,15 +357,15 @@ export default function MemberTaskPage({
                       className="overflow-hidden"
                     >
                       <div className="px-6 pb-6">
-                        <div className="overflow-x-auto rounded-2xl border border-white/5">
+                        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/5">
                           <table className="w-full text-left border-collapse">
                             <thead>
                               <tr className="bg-black/20 border-b border-white/5">
                                 <th className="px-5 py-4 w-12 text-[0.6rem] font-black text-dark-500 uppercase tracking-widest">#</th>
-                                <th className="px-5 py-4 text-[0.6rem] font-black text-dark-500 uppercase tracking-widest">Task Description</th>
+                                <th className="px-5 py-4 text-[0.6rem] font-black text-dark-500 uppercase tracking-widest">Description</th>
                                 <th className="px-5 py-4 w-28 text-[0.6rem] font-black text-dark-500 uppercase tracking-widest text-center">Status</th>
-                                <th className="px-5 py-4 text-[0.6rem] font-black text-dark-500 uppercase tracking-widest">My Feedback</th>
-                                <th className="px-5 py-4 text-[0.6rem] font-black text-dark-500 uppercase tracking-widest">Friend Feedback</th>
+                                <th className="px-5 py-4 text-[0.6rem] font-black text-dark-500 uppercase tracking-widest">Feedback</th>
+                                <th className="px-5 py-4 text-[0.6rem] font-black text-dark-500 uppercase tracking-widest text-right">Review</th>
                                 {isAdmin && <th className="px-5 py-4 w-12"></th>}
                               </tr>
                             </thead>
@@ -390,16 +379,16 @@ export default function MemberTaskPage({
                                     transition={{ delay: tIdx * 0.03 }}
                                     className={`group/row transition-colors ${
                                       task.completed === true ? 'bg-emerald-500/[0.02]' : 
-                                      task.completed === false ? 'bg-red-500/[0.02]' : ''
+                                      task.completed === false ? 'bg-red-500/[0.01]' : ''
                                     }`}
                                   >
                                     <td className="px-5 py-4">
-                                      <span className="text-[0.6rem] font-black text-dark-600 group-hover/row:text-indigo-400 transition-colors">0{tIdx + 1}</span>
+                                      <span className="text-[0.6rem] font-black text-dark-700 group-hover/row:text-indigo-400 transition-colors">0{tIdx + 1}</span>
                                     </td>
                                     <td className="px-5 py-4">
                                       <EditableCell
                                         dayId={day.id} taskId={task.id} field="name"
-                                        value={task.name} placeholder="Enter task..."
+                                        value={task.name} placeholder="Study task"
                                         canEdit={isAdmin}
                                       />
                                     </td>
@@ -407,30 +396,30 @@ export default function MemberTaskPage({
                                       <div className="flex justify-center">
                                         <StatusButton
                                           completed={task.completed}
-                                          onComplete={() => toggleTaskStatus(member.id, day.id, task.id, true)}
-                                          onIncomplete={() => toggleTaskStatus(member.id, day.id, task.id, false)}
-                                          canEdit={isAdmin || currentUserRole === 'friend' && member.username === username} // Friends can edit their own status if viewing their page
+                                          onComplete={() => toggleTaskStatus(mid, day.id, task.id, true)}
+                                          onIncomplete={() => toggleTaskStatus(mid, day.id, task.id, false)}
+                                          canEdit={isAdmin || mid === store?.user?._id}
                                         />
                                       </div>
                                     </td>
                                     <td className="px-5 py-4">
                                       <EditableCell
                                         dayId={day.id} taskId={task.id} field="myFeedback"
-                                        value={task.myFeedback} placeholder="Add feedback..."
-                                        canEdit={true}
+                                        value={task.myFeedback} placeholder="Add personal note..."
+                                        canEdit={mid === store?.user?._id || isAdmin}
                                       />
                                     </td>
-                                    <td className="px-5 py-4">
+                                    <td className="px-5 py-4 text-right">
                                       <EditableCell
                                         dayId={day.id} taskId={task.id} field="friendFeedback"
-                                        value={task.friendFeedback} placeholder="Add feedback..."
-                                        canEdit={true}
+                                        value={task.friendFeedback} placeholder="..."
+                                        canEdit={isAdmin}
                                       />
                                     </td>
                                     {isAdmin && (
                                       <td className="px-5 py-4 text-center">
                                         <button
-                                          onClick={() => deleteTask(member.id, day.id, task.id)}
+                                          onClick={() => deleteTask(mid, day.id, task.id)}
                                           className="p-1.5 rounded-lg text-dark-600 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover/row:opacity-100"
                                         >
                                           <Trash2 className="w-3.5 h-3.5" />
@@ -444,7 +433,6 @@ export default function MemberTaskPage({
                           </table>
                         </div>
 
-                        {/* Add Task Control (Admin) */}
                         {isAdmin && (
                           <div className="mt-5">
                             <AnimatePresence>
@@ -460,11 +448,11 @@ export default function MemberTaskPage({
                                       autoFocus
                                       value={newTaskName}
                                       onChange={e => setNewTaskName(e.target.value)}
-                                      placeholder="What are we studying? (e.g. System Design)"
-                                      className="input-glass flex-1 text-xs"
+                                      placeholder="New study goal..."
+                                      className="input-glass flex-1 text-xs font-bold"
                                       onKeyDown={e => {
                                         if (e.key === 'Enter' && newTaskName.trim()) {
-                                          addTask(member.id, day.id, newTaskName.trim());
+                                          addTask(mid, day.id, newTaskName.trim());
                                           setNewTaskName('');
                                         }
                                         if (e.key === 'Escape') {
@@ -476,19 +464,13 @@ export default function MemberTaskPage({
                                     <button
                                       onClick={() => {
                                         if (newTaskName.trim()) {
-                                          addTask(member.id, day.id, newTaskName.trim());
+                                          addTask(mid, day.id, newTaskName.trim());
                                           setNewTaskName('');
                                         }
                                       }}
                                       className="px-5 py-2.5 rounded-xl bg-indigo-500 text-white font-black uppercase tracking-widest text-[0.6rem] shadow-lg shadow-indigo-500/20"
                                     >
-                                      Add
-                                    </button>
-                                    <button
-                                      onClick={() => { setAddingTaskForDay(null); setNewTaskName(''); }}
-                                      className="px-3 py-2 text-dark-400 hover:text-white transition-colors text-[0.6rem] font-black uppercase tracking-widest"
-                                    >
-                                      Done
+                                      Add Task
                                     </button>
                                   </div>
                                 </motion.div>
@@ -502,7 +484,7 @@ export default function MemberTaskPage({
                                     transition-all flex items-center justify-center gap-3 text-[0.6rem] font-black uppercase tracking-[0.2em]"
                                 >
                                   <Plus className="w-4 h-4" />
-                                  Add Study Task
+                                  Insert New Tracker
                                 </motion.button>
                               )}
                             </AnimatePresence>
@@ -516,20 +498,6 @@ export default function MemberTaskPage({
             );
           })}
         </AnimatePresence>
-
-        {sortedDays.length === 0 && (
-          <div className="glass-card p-20 text-center border border-white/5">
-            <div className="w-20 h-20 rounded-full bg-indigo-500/10 flex items-center justify-center mx-auto mb-6">
-              <Calendar className="w-10 h-10 text-indigo-500/40" />
-            </div>
-            <h3 className="text-xl font-display font-black text-white mb-2 tracking-tight">Focus Plan Empty</h3>
-            <p className="text-sm text-dark-500 max-w-[280px] mx-auto leading-relaxed">
-              {isAdmin
-                ? 'Your journey hasn\'t started yet. Use "Open Task Box" or "Add Today\'s Entry" to begin.'
-                : 'The admin hasn\'t set up a study plan for this member yet.'}
-            </p>
-          </div>
-        )}
       </div>
     </motion.div>
   );

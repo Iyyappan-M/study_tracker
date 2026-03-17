@@ -32,7 +32,7 @@ export default function ClubChat({
 
   const handleSend = () => {
     if (!inputText.trim()) return;
-    onSendMessage(currentUser.id, inputText.trim(), replyingTo);
+    onSendMessage(currentUser._id, inputText.trim(), replyingTo);
     setInputText('');
     setReplyingTo(null);
   };
@@ -94,12 +94,12 @@ export default function ClubChat({
         className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar scroll-smooth bg-black/10"
       >
         {messages.map((msg, i) => {
-          const isMe = msg.userId === currentUser?.id;
+          const isMe = msg.userId === currentUser?._id;
           const showAvatar = i === 0 || messages[i-1].userId !== msg.userId;
 
           return (
             <motion.div
-              key={msg.id}
+              key={msg._id || msg.id}
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               className={`flex items-end gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
@@ -146,7 +146,7 @@ export default function ClubChat({
                     )}
                     <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">{msg.text}</p>
                     <p className={`text-[0.55rem] mt-2 font-bold uppercase tracking-tighter opacity-50 ${isMe ? 'text-right' : 'text-left'}`}>
-                      {format(new Date(msg.time), 'hh:mm a')}
+                      {format(new Date(msg.createdAt || Date.now()), 'hh:mm a')}
                     </p>
                   </div>
 
@@ -164,15 +164,15 @@ export default function ClubChat({
                     {isAdmin && (
                       <>
                         <button 
-                          onClick={() => onPinMessage(msg.id)}
+                          onClick={() => onPinMessage(msg._id || msg.id)}
                           className="p-1.5 hover:bg-white/10 rounded-lg text-dark-400 hover:text-amber-400 transition-colors"
                           title="Pin Message"
                         >
                           <Pin className="w-3.5 h-3.5" />
                         </button>
                         <button 
-                          onClick={() => onDeleteMessage(msg.id)}
-                          className="p-1.5 hover:bg-white/10 rounded-lg text-dark-400 hover:text-red-400 transition-colors"
+                          onClick={() => onDeleteMessage(msg._id || msg.id)}
+                          className="p-1.5 hover:bg-white/10 rounded-lg text-dark-400 hover:text-red-400 transition-all"
                           title="Delete Message"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
