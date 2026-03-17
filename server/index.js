@@ -129,6 +129,18 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// ─── Club Routes ─────────────────────────────────────────────
+
+// Get my request status
+app.get('/api/club/my-request', authenticate, async (req, res) => {
+  try {
+    const request = await Request.findOne({ userId: req.user.id });
+    res.json(request);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Join Club Request
 app.post('/api/club/join', authenticate, async (req, res) => {
   try {
@@ -138,12 +150,18 @@ app.post('/api/club/join', authenticate, async (req, res) => {
     }
 
     const existingRequest = await Request.findOne({ userId: req.user.id });
-    if (existingRequest) return res.status(400).json({ message: 'Request already exists' });
+    if (existingRequest) {
+      existingRequest.name = name;
+      existingRequest.status = 'pending';
+      await existingRequest.save();
+      return res.json({ message: 'Join request updated! Awaiting approval.' });
+    }
 
     const newRequest = new Request({
       userId: req.user.id,
       name,
-      secretCode
+      secretCode,
+      status: 'pending'
     });
     await newRequest.save();
 
