@@ -193,10 +193,16 @@ export default function App() {
                     getMember={store.getMember}
                     getRowsForMember={store.getRowsForMember}
                     calculateStreak={store.calculateStreak}
+                    addDay={store.addDay}
+                    deleteDay={store.deleteDay}
+                    addTask={store.addTask}
+                    updateTask={store.updateTask}
+                    deleteTask={store.deleteTask}
                     toggleTaskStatus={store.toggleTaskStatus}
                     updateTaskFeedback={store.updateTaskFeedback}
                     updateTaskGlobally={store.updateTaskGlobally}
                     currentUserRole={isAdmin ? "admin" : "friend"}
+                    currentUser={store.user}
                   />
                 }
               />

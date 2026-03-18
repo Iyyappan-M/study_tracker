@@ -70,9 +70,25 @@ const MessageSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const TaskSchema = new mongoose.Schema({
+  id: String,
+  name: String,
+  completed: { type: Boolean, default: null },
+  myFeedback: { type: String, default: '' },
+  friendFeedback: { type: String, default: '' },
+});
+
+const DaySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  id: String,
+  date: { type: String, required: true },
+  tasks: [TaskSchema],
+});
+
 const User = mongoose.model('User', userSchema);
 const Request = mongoose.model('Request', RequestSchema);
 const Message = mongoose.model('Message', MessageSchema);
+const Day = mongoose.model('Day', DaySchema);
 
 // ─── Auth Middleware ──────────────────────────────────────────
 
@@ -344,6 +360,192 @@ app.put('/api/user/update-profile', authenticate, async (req, res) => {
     const { name } = req.body;
     const user = await User.findByIdAndUpdate(req.user.id, { name }, { new: true }).select('-password');
     res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ─── Task Management Routes ───────────────────────────────────
+
+// Save/Setup plan
+app.post('/api/club/setup-plan', authenticate, async (req, res) => {
+  try {
+    const { memberId, days } = req.body;
+    
+    // Only admin or the user themselves can setup their plan
+    if (req.user.role !== 'admin' && req.user.id !== memberId) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    // Delete existing days for this member to avoid duplicates
+    await Day.deleteMany({ userId: memberId });
+
+    // Insert new days
+    const formattedDays = days.map(d => ({
+      ...d,
+      userId: memberId
+    }));
+    await Day.insertMany(formattedDays);
+
+    res.json({ message: 'Study plan setup successfully' });
+  } catch (err) {
+    console.error('Task setup error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get all tasks (for members display)
+app.get('/api/club/tasks', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.status !== 'approved') return res.status(403).json({ message: 'Not approved' });
+    
+    const tasks = await Day.find();
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update single task status/feedback
+app.put('/api/club/task/update', authenticate, async (req, res) => {
+  try {
+    const { memberId, dayId, taskId, field, value } = req.body;
+
+    // Permissions: 
+    // - Users can update their own task completion and myFeedback
+    // - Friends/Admin can update friendFeedback
+    const isOwner = req.user.id === memberId;
+    const isAdmin = req.user.role === 'admin';
+
+    const day = await Day.findOne({ userId: memberId, id: dayId });
+    if (!day) return res.status(404).json({ message: 'Day not found' });
+
+    const task = day.tasks.find(t => t.id === taskId);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    if (field === 'completed' || field === 'myFeedback') {
+      if (!isOwner && !isAdmin) return res.status(403).json({ message: 'Unauthorized' });
+      task[field] = value;
+    } else if (field === 'friendFeedback') {
+      // Allow others (approved members) to leave feedback
+      task[field] = value;
+    }
+
+    await day.save();
+    res.json({ message: 'Task updated' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Global task rename
+app.put('/api/club/task/rename-global', authenticate, async (req, res) => {
+  try {
+    const { memberId, oldName, newName } = req.body;
+    if (req.user.id !== memberId && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Update all future days' tasks
+    const days = await Day.find({ userId: memberId });
+    for (const day of days) {
+      if (day.date >= today) {
+        let changed = false;
+        day.tasks = day.tasks.map(t => {
+          if (t.name === oldName) {
+            changed = true;
+            return { ...t, name: newName };
+          }
+          return t;
+        });
+        if (changed) await day.save();
+      }
+    }
+
+    res.json({ message: 'Tasks renamed globally' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Granular updates
+app.post('/api/club/day/add', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { memberId } = req.body;
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    const newDay = new Day({
+      userId: memberId,
+      id: Math.random().toString(36).substring(2, 11),
+      date: dateStr,
+      tasks: []
+    });
+    await newDay.save();
+    res.json(newDay);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.delete('/api/club/day/:memberId/:dayId', authenticate, isAdmin, async (req, res) => {
+  try {
+    await Day.findOneAndDelete({ userId: req.params.memberId, id: req.params.dayId });
+    res.json({ message: 'Day deleted' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.post('/api/club/task/add', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { memberId, dayId, name } = req.body;
+    const day = await Day.findOne({ userId: memberId, id: dayId });
+    if (!day) return res.status(404).json({ message: 'Day not found' });
+
+    const newTask = {
+      id: Math.random().toString(36).substring(2, 11),
+      name,
+      completed: null,
+      myFeedback: '',
+      friendFeedback: ''
+    };
+    day.tasks.push(newTask);
+    await day.save();
+    res.json(newTask);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.put('/api/club/task/update-info', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { memberId, dayId, taskId, updates } = req.body;
+    const day = await Day.findOne({ userId: memberId, id: dayId });
+    if (!day) return res.status(404).json({ message: 'Day not found' });
+
+    const task = day.tasks.find(t => t.id === taskId);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    if (updates.name) task.name = updates.name;
+    
+    await day.save();
+    res.json({ message: 'Task updated' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.delete('/api/club/task/:memberId/:dayId/:taskId', authenticate, isAdmin, async (req, res) => {
+  try {
+    const day = await Day.findOne({ userId: req.params.memberId, id: req.params.dayId });
+    if (!day) return res.status(404).json({ message: 'Day not found' });
+
+    day.tasks = day.tasks.filter(t => t.id !== req.params.taskId);
+    await day.save();
+    res.json({ message: 'Task deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

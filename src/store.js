@@ -31,6 +31,35 @@ export const useStore = () => {
   const [pinnedMessage, setPinnedMessage] = useState(null);
   const [chatNotifications, setChatNotifications] = useState(0);
 
+  // ─── Core Notifications ─────────────────────────────────────
+  const addNotification = useCallback((message, type = 'info') => {
+    const id = generateId();
+    setNotifications(prev => [{ id, message, type, time: new Date() }, ...prev].slice(0, 5));
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
+  }, []);
+
+  // ─── Data Utilities ─────────────────────────────────────────
+  const calculateStreak = useCallback((memberId) => {
+    const days = (memberDays[memberId] || [])
+      .slice()
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    let streak = 0;
+    for (const day of days) {
+      const status = getDayStatus(day.tasks);
+      if (status === true) streak++;
+      else if (status === false) break;
+      else continue;
+    }
+    return streak;
+  }, [memberDays]);
+
+  const getMember = useCallback((userParam) => 
+    members.find(m => m.username === userParam || m._id === userParam), [members]);
+
+  const getRowsForMember = useCallback((id) => memberDays[id] || [], [memberDays]);
+
   // ─── Auth Actions ───────────────────────────────────────────
   
   const register = async (formData) => {
@@ -187,6 +216,20 @@ export const useStore = () => {
         const pinned = msgs.find(m => m.isPinned);
         setPinnedMessage(pinned || null);
       }
+
+      // 4. Fetch Tasks
+      const taskRes = await fetch(`${API_BASE_URL}/club/tasks`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (taskRes.ok) {
+        const allDays = await taskRes.json();
+        const grouped = {};
+        allDays.forEach(d => {
+          if (!grouped[d.userId]) grouped[d.userId] = [];
+          grouped[d.userId].push(d);
+        });
+        setMemberDays(grouped);
+      }
     } catch (err) {
       console.error('Study club data fetch failed');
     }
@@ -235,7 +278,7 @@ export const useStore = () => {
   };
 
   // ─── Task Setup & 15-Day Auto-Fill ──────────────────────────
-  const setupStudyPlan = useCallback((memberId, taskNames) => {
+  const setupStudyPlan = useCallback(async (memberId, taskNames) => {
     const startDate = new Date();
     const newDays = [];
 
@@ -257,133 +300,207 @@ export const useStore = () => {
       });
     }
 
-    setMemberDays(prev => ({
-      ...prev,
-      [memberId]: newDays
-    }));
-    addNotification(`🚀 15-day plan setup for ${taskNames.length} tasks!`, 'success');
-  }, []);
-
-  const setupGlobalStudyPlan = useCallback((taskNames) => {
-    const startDate = new Date();
-    
-    setMemberDays(prev => {
-      const newState = { ...prev };
-      
-      members.forEach(m => {
-        const newDays = [];
-        for (let i = 0; i < 15; i++) {
-          const date = new Date(startDate);
-          date.setDate(date.getDate() + i);
-          const dateStr = date.toISOString().split('T')[0];
-
-          newDays.push({
-            id: generateId(),
-            date: dateStr,
-            tasks: taskNames.map(name => ({
-              id: generateId(),
-              name,
-              completed: null,
-              myFeedback: '',
-              friendFeedback: ''
-            }))
-          });
-        }
-        newState[m._id] = newDays;
+    try {
+      const res = await fetch(`${API_BASE_URL}/club/setup-plan`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ memberId, days: newDays })
       });
-      
-      return newState;
-    });
-    
+      if (res.ok) {
+        setMemberDays(prev => ({ ...prev, [memberId]: newDays }));
+        addNotification(`🚀 15-day plan setup for ${taskNames.length} tasks!`, 'success');
+      }
+    } catch (err) {
+      addNotification('❌ Plan setup failed', 'warning');
+    }
+  }, [token, addNotification]);
+
+  const setupGlobalStudyPlan = useCallback(async (taskNames) => {
+    for (const m of members) {
+      await setupStudyPlan(m._id, taskNames);
+    }
     addNotification(`🌍 Global 15-day plan pushed to all ${members.length} members!`, 'success');
-  }, [members]);
+  }, [members, setupStudyPlan, addNotification]);
 
   // ─── Global Task Edit ───────────────────────────────────────
-  const updateTaskGlobally = useCallback((memberId, oldName, newName) => {
-    setMemberDays(prev => {
-      const userDays = prev[memberId] || [];
-      const today = new Date().toISOString().split('T')[0];
-
-      const updatedDays = userDays.map(d => {
-        if (new Date(d.date) < new Date(today)) return d;
-        return {
-          ...d,
-          tasks: d.tasks.map(t => t.name === oldName ? { ...t, name: newName } : t)
-        };
+  const updateTaskGlobally = useCallback(async (memberId, oldName, newName) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/club/task/rename-global`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ memberId, oldName, newName })
       });
-
-      return { ...prev, [memberId]: updatedDays };
-    });
-    addNotification(`📝 Updated "${oldName}" to "${newName}" for all future days`, 'info');
-  }, []);
-
-  // ─── Core Tracking Actions ──────────────────────────────────
-  const addNotification = useCallback((message, type = 'info') => {
-    const id = generateId();
-    setNotifications(prev => [{ id, message, type, time: new Date() }, ...prev].slice(0, 5));
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 5000);
-  }, []);
-
-  const toggleTaskStatus = useCallback((memberId, dayId, taskId, completed) => {
-    setMemberDays(prev => {
-      const userDays = prev[memberId] || [];
-      const updatedDays = userDays.map(d => {
-        if (d.id !== dayId) return d;
-        return {
-          ...d,
-          tasks: d.tasks.map(t => t.id === taskId ? { ...t, completed } : t),
-        };
-      });
-
-      if (completed === false) {
-          const streak = calculateStreak(memberId);
-          if (streak > 0) {
-              setStreakPopup({
-                  userId: memberId,
-                  userName: members.find(m => m._id === memberId)?.name || 'User',
-                  streak: streak,
-                  dayId: dayId
-              });
-          }
+      if (res.ok) {
+        fetchClubData();
+        addNotification(`📝 Updated "${oldName}" to "${newName}" for all future days`, 'info');
       }
-
-      return { ...prev, [memberId]: updatedDays };
-    });
-  }, [members]);
-
-  const updateTaskFeedback = useCallback((memberId, dayId, taskId, field, value) => {
-    setMemberDays(prev => ({
-      ...prev,
-      [memberId]: (prev[memberId] || []).map(d => {
-        if (d.id !== dayId) return d;
-        return {
-          ...d,
-          tasks: d.tasks.map(t => t.id === taskId ? { ...t, [field]: value } : t),
-        };
-      }),
-    }));
-  }, []);
-
-  const calculateStreak = useCallback((memberId) => {
-    const days = (memberDays[memberId] || [])
-      .slice()
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-    let streak = 0;
-    for (const day of days) {
-      const status = getDayStatus(day.tasks);
-      if (status === true) streak++;
-      else if (status === false) break;
-      else continue;
+    } catch (err) {
+      addNotification('❌ Update failed', 'warning');
     }
-    return streak;
-  }, [memberDays]);
+  }, [token, fetchClubData, addNotification]);
 
-  const getMember = useCallback((userParam) => 
-    members.find(m => m.username === userParam || m._id === userParam), [members]);
+  const addDay = useCallback(async (memberId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/club/day/add`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ memberId })
+      });
+      if (res.ok) {
+        fetchClubData();
+        addNotification('📅 New day added!', 'success');
+      }
+    } catch (err) {
+      addNotification('❌ Failed to add day', 'warning');
+    }
+  }, [token, fetchClubData, addNotification]);
 
-  const getRowsForMember = useCallback((id) => memberDays[id] || [], [memberDays]);
+  const deleteDay = useCallback(async (memberId, dayId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/club/day/${memberId}/${dayId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchClubData();
+        addNotification('🗑️ Day deleted', 'warning');
+      }
+    } catch (err) {
+      addNotification('❌ Failed to delete day', 'warning');
+    }
+  }, [token, fetchClubData, addNotification]);
+
+  const addTask = useCallback(async (memberId, dayId, name) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/club/task/add`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ memberId, dayId, name })
+      });
+      if (res.ok) {
+        fetchClubData();
+        addNotification('🎯 Task added!', 'success');
+      }
+    } catch (err) {
+      addNotification('❌ Failed to add task', 'warning');
+    }
+  }, [token, fetchClubData, addNotification]);
+
+  const updateTask = useCallback(async (memberId, dayId, taskId, updates) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/club/task/update-info`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ memberId, dayId, taskId, updates })
+      });
+      if (res.ok) {
+        fetchClubData();
+        addNotification('📝 Task updated', 'info');
+      }
+    } catch (err) {
+      addNotification('❌ Update failed', 'warning');
+    }
+  }, [token, fetchClubData, addNotification]);
+
+  const deleteTask = useCallback(async (memberId, dayId, taskId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/club/task/${memberId}/${dayId}/${taskId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchClubData();
+        addNotification('🗑️ Task removed', 'warning');
+      }
+    } catch (err) {
+      addNotification('❌ Removal failed', 'warning');
+    }
+  }, [token, fetchClubData, addNotification]);
+
+
+  const toggleTaskStatus = useCallback(async (memberId, dayId, taskId, completed) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/club/task/update`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ memberId, dayId, taskId, field: 'completed', value: completed })
+      });
+      if (res.ok) {
+        setMemberDays(prev => {
+          const userDays = prev[memberId] || [];
+          const updatedDays = userDays.map(d => {
+            if (d.id !== dayId) return d;
+            return {
+              ...d,
+              tasks: d.tasks.map(t => t.id === taskId ? { ...t, completed } : t),
+            };
+          });
+
+          if (completed === false) {
+              const streak = calculateStreak(memberId);
+              if (streak > 0) {
+                  setStreakPopup({
+                      userId: memberId,
+                      userName: members.find(m => m._id === memberId)?.name || 'User',
+                      streak: streak,
+                      dayId: dayId
+                  });
+              }
+          }
+
+          return { ...prev, [memberId]: updatedDays };
+        });
+      }
+    } catch (err) {
+      addNotification('❌ Update failed', 'warning');
+    }
+  }, [token, members, calculateStreak, addNotification]);
+
+  const updateTaskFeedback = useCallback(async (memberId, dayId, taskId, field, value) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/club/task/update`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ memberId, dayId, taskId, field, value })
+      });
+      if (res.ok) {
+        setMemberDays(prev => ({
+          ...prev,
+          [memberId]: (prev[memberId] || []).map(d => {
+            if (d.id !== dayId) return d;
+            return {
+              ...d,
+              tasks: d.tasks.map(t => t.id === taskId ? { ...t, [field]: value } : t),
+            };
+          }),
+        }));
+      }
+    } catch (err) {
+      addNotification('❌ Feedback failed', 'warning');
+    }
+  }, [token, addNotification]);
+
 
   const getLeaderboard = useCallback(() => {
     return members.map(m => ({
@@ -487,7 +604,9 @@ export const useStore = () => {
     joinRequests, notifications, streakPopup,
     messages, pinnedMessage, chatNotifications,
     register, login, logout, updateProfile, requestJoinClub, handleRequest, removeMember,
-    setupStudyPlan, setupGlobalStudyPlan, updateTaskGlobally, calculateStreak, getMember, getRowsForMember,
+    setupStudyPlan, setupGlobalStudyPlan, updateTaskGlobally, 
+    addDay, deleteDay, addTask, updateTask, deleteTask,
+    calculateStreak, getMember, getRowsForMember,
     toggleTaskStatus, updateTaskFeedback, getLeaderboard, getWeeklyStats,
     setStreakPopup, addNotification,
     sendMessage, deleteMessage, pinMessage, clearChatNotifications

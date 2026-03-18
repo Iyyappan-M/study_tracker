@@ -18,6 +18,7 @@ export default function MemberTaskPage({
   updateTaskFeedback,
   updateTaskGlobally,
   currentUserRole,
+  currentUser,
 }) {
   const { username: memberId } = useParams();
   const navigate = useNavigate();
@@ -398,7 +399,7 @@ export default function MemberTaskPage({
                                           completed={task.completed}
                                           onComplete={() => toggleTaskStatus(mid, day.id, task.id, true)}
                                           onIncomplete={() => toggleTaskStatus(mid, day.id, task.id, false)}
-                                          canEdit={isAdmin || mid === store?.user?._id}
+                                          canEdit={isAdmin || mid === currentUser?._id}
                                         />
                                       </div>
                                     </td>
@@ -406,7 +407,7 @@ export default function MemberTaskPage({
                                       <EditableCell
                                         dayId={day.id} taskId={task.id} field="myFeedback"
                                         value={task.myFeedback} placeholder="Add personal note..."
-                                        canEdit={mid === store?.user?._id || isAdmin}
+                                        canEdit={mid === currentUser?._id || isAdmin}
                                       />
                                     </td>
                                     <td className="px-5 py-4 text-right">
