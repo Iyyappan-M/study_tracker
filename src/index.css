@@ -109,6 +109,38 @@ body {
               inset 0 0 5px rgba(99, 102, 241, 0.05);
 }
 
+.glow-pulse {
+  animation: glow-pulse 2s infinite ease-in-out;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(99, 102, 241, 0.2), inset 0 0 5px rgba(99, 102, 241, 0.1); }
+  50% { box-shadow: 0 0 25px rgba(99, 102, 241, 0.5), inset 0 0 10px rgba(99, 102, 241, 0.3); }
+}
+
+.premium-aura {
+  position: relative;
+  overflow: hidden;
+}
+
+.premium-aura::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+  animation: rotate-aura 10s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes rotate-aura {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ===== Fire Effect ===== */
 .fire-text {
   background: linear-gradient(180deg, #ff9a00 0%, #ff6b00 30%, #ff453a 60%, #ff2d55 100%);

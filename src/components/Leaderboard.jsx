@@ -37,7 +37,7 @@ export default function Leaderboard({ data, currentUser }) {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 * rank }}
-              className={`leaderboard-row ${rank <= 3 ? `leaderboard-rank-${rank}` : ''} ${user._id === currentUser?._id ? 'border-indigo-500/50 bg-indigo-500/5 shadow-lg shadow-indigo-500/10' : ''}`}
+              className={`leaderboard-row ${rank <= 3 ? `leaderboard-rank-${rank}` : ''} ${rank === 1 ? 'glow-pulse' : ''} ${user._id === currentUser?._id ? 'border-indigo-500/50 bg-indigo-500/5 shadow-lg shadow-indigo-500/10' : ''}`}
             >
               {/* Rank */}
               <div className="text-lg font-bold min-w-[32px] text-center">

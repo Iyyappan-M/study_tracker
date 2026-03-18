@@ -103,7 +103,7 @@ export default function Header({
           </motion.button>
 
           {/* User Avatar */}
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-lg shadow-lg shadow-green-500/20 ring-1 ring-white/10" title={user?.name}>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-lg shadow-lg shadow-green-500/20 ring-1 ring-white/10 premium-aura glow-pulse" title={user?.name}>
             {user?.avatar || (isAdmin ? '👨‍💻' : '🎉')}
           </div>
         </div>
@@ -148,12 +148,12 @@ export default function Header({
 
       {/* Streak Banner */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
         className="mx-6 mb-6"
       >
-        <div className="glass-card p-6 relative overflow-hidden group border-white/5">
+        <div className="glass-card p-6 relative overflow-hidden group border-white/5 premium-aura">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
